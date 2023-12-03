@@ -1,0 +1,17 @@
+service: app
+provider:
+  name: aws
+  region: us-east-1
+  runtime: provided.al2
+plugins:
+  - ./vendor/bref/bref
+functions:
+  room-11:
+    handler: room-11.php
+    description: ''
+#    environment:
+#      SLACK_WEBHOOK: ${ssm:/room-11/SLACK_WEBHOOK~true}
+    layers:
+        - ${bref:layer.php-82}
+    events:
+        - schedule: rate(1 hour)
