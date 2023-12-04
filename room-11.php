@@ -21,8 +21,9 @@ class Message implements JsonSerializable
         $content = preg_replace('#<br\s*/?>#i', "\n", $content);
         $content = html_entity_decode($content);
         $content = trim($content);
-        
-        $this->timestamp = \DateTimeImmutable::createFromFormat('g:i A', $timestamp);
+
+        $tz = new DateTimeZone("UTC");
+        $this->timestamp = \DateTimeImmutable::createFromFormat('g:i A', $timestamp, $tz);
         
         $this->content = $content;
     }
@@ -114,7 +115,8 @@ $messages = $scraper->scrapeWebContent($url);
 
 function getLastHourItems($items)
 {
-    $lastHour = (new \DateTime())->sub(new \DateInterval('PT1H'));
+    $tz = new DateTimeZone("UTC");
+    $lastHour = (new \DateTime('now', $tz))->sub(new \DateInterval('PT1H'));
 
     return array_filter($items, static function (Message $msg) use ($lastHour) {
         return $msg->timestamp >= $lastHour;
