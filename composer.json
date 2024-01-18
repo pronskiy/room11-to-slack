@@ -1,5 +1,7 @@
 {
   "require": {
+    "php": "^8.2",
+    "ext-dom": "*",
     "symfony/http-client": "^v7.0.0",
     "imangazaliev/didom": "^2.0.1",
     "bref/bref": "^2.1.9"

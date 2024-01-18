@@ -3,6 +3,8 @@ provider:
   name: aws
   region: us-east-1
   runtime: provided.al2
+  environment:
+    SLACK_WEBHOOK: ${ssm:/room-11/SLACK_WEBHOOK}
 plugins:
   - ./vendor/bref/bref
 functions:

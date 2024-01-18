@@ -2,10 +2,10 @@
 
 require 'vendor/autoload.php';
 
+use DiDom\Document;
 use DiDom\Element;
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
-use DiDom\Document;
 
 class Message implements JsonSerializable
 {
@@ -41,6 +41,8 @@ class Message implements JsonSerializable
 
 class WebScraperToSlack
 {
+    const URL = 'https://chat.stackoverflow.com/transcript/11';
+    
     private HttpClientInterface $client;
 
     public function __construct()
@@ -49,13 +51,23 @@ class WebScraperToSlack
         $this->client = $client;
     }
 
-    public function scrapeWebContent(string $url)
+    /**
+     * @throws \Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface
+     * @throws \Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface
+     * @throws \DiDom\Exceptions\InvalidSelectorException
+     * @throws \Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface
+     * @throws \Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface
+     */
+    public function scrapeWebContent()
     {
         // The content to be scraped from the web page
         $messages = [];
 
+        $tz = new DateTimeZone("UTC");
+        $today = (new \DateTime('now', $tz))->format('Y/m/d');
+
         // Scrape content from web page
-        $page = $this->client->request('GET', $url)->getContent();
+        $page = $this->client->request('GET', self::URL . '/' . $today)->getContent();
 
         $document = new Document($page);
 
@@ -89,7 +101,7 @@ class WebScraperToSlack
                     $content,
                     $user,
                     $timestamp,
-                    $url,
+                    self::URL,
                 );
                 $messages[] = $message;
             }
@@ -98,34 +110,42 @@ class WebScraperToSlack
         return $messages;
     }
 
-    public function postToSlack(string $webhookUrl, string $text)
+    public function postToSlack(string $text)
     {
+        $webhookUrl = $_SERVER['SLACK_WEBHOOK'];
+        var_dump($webhookUrl);
         $this->client->request('POST', $webhookUrl, [
             'json' => ['text' => $text],  
         ]);
+    }
+
+    public function getLastHourItems($items)
+    {
+        $tz = new DateTimeZone("UTC");
+        $lastHour = (new \DateTime('now', $tz))->sub(new \DateInterval('PT1H'));
+
+
+        $m = array_map(static function (Message $msg) use ($lastHour) {
+            return sprintf('%s | %s | %d', $msg->timestamp->format('d/m/y H:i'), $lastHour->format('d/m/y H:i'), $msg->timestamp >= $lastHour);
+        }, $items);
+        
+        $this->postToSlack('_DEBUG:_ ' . var_export($m, true));
+
+        return array_filter($items, static function (Message $msg) use ($lastHour) {
+            return $msg->timestamp >= $lastHour;
+        });
     }
 }
 
 $scraper = new WebScraperToSlack();
 
-$url = 'https://chat.stackoverflow.com/transcript/11';
-$webhookUrl = getenv('SLACK_WEBHOOK');
+$messages = $scraper->scrapeWebContent();
+$scraper->getLastHourItems($messages);
 
-$messages = $scraper->scrapeWebContent($url);
-
-function getLastHourItems($items)
-{
-    $tz = new DateTimeZone("UTC");
-    $lastHour = (new \DateTime('now', $tz))->sub(new \DateInterval('PT1H'));
-
-    return array_filter($items, static function (Message $msg) use ($lastHour) {
-        return $msg->timestamp >= $lastHour;
-    });
-}
-
-return function ($event) use ($messages, $scraper, $webhookUrl) {
-    foreach (getLastHourItems($messages) as $message) {
-        $scraper->postToSlack($webhookUrl, $message);  
+return function ($event) use ($messages, $scraper) {
+    $lastHourItems = $scraper->getLastHourItems($messages);
+    foreach ($lastHourItems as $message) {
+        $scraper->postToSlack($message);
     }
-    return json_encode(getLastHourItems($messages), JSON_PRETTY_PRINT);
+    return json_encode($lastHourItems, JSON_PRETTY_PRINT);
 };
