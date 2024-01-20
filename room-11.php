@@ -4,12 +4,17 @@ require 'vendor/autoload.php';
 
 use DiDom\Document;
 use DiDom\Element;
+use DiDom\Exceptions\InvalidSelectorException;
 use Symfony\Component\HttpClient\HttpClient;
+use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class Message implements JsonSerializable
 {
-    public \DateTimeImmutable $timestamp;
+    public DateTimeImmutable $timestamp;
 
     public function __construct(
         public string $content,
@@ -23,7 +28,7 @@ class Message implements JsonSerializable
         $content = trim($content);
 
         $tz = new DateTimeZone("UTC");
-        $this->timestamp = \DateTimeImmutable::createFromFormat('g:i A', $timestamp, $tz);
+        $this->timestamp = DateTimeImmutable::createFromFormat('g:i A', $timestamp, $tz);
         
         $this->content = $content;
     }
@@ -52,11 +57,12 @@ class WebScraperToSlack
     }
 
     /**
-     * @throws \Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface
-     * @throws \Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface
-     * @throws \DiDom\Exceptions\InvalidSelectorException
-     * @throws \Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface
-     * @throws \Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface
+     * @throws ClientExceptionInterface
+     * @throws ServerExceptionInterface
+     * @throws InvalidSelectorException
+     * @throws RedirectionExceptionInterface
+     * @throws TransportExceptionInterface
+     * @throws Exception
      */
     public function scrapeWebContent()
     {
@@ -64,7 +70,7 @@ class WebScraperToSlack
         $messages = [];
 
         $tz = new DateTimeZone("UTC");
-        $today = (new \DateTime('now', $tz))->format('Y/m/d');
+        $today = (new DateTime('now', $tz))->format('Y/m/d');
 
         // Scrape content from web page
         $page = $this->client->request('GET', self::URL . '/' . $today)->getContent();
@@ -113,7 +119,6 @@ class WebScraperToSlack
     public function postToSlack(string $text)
     {
         $webhookUrl = $_SERVER['SLACK_WEBHOOK'];
-        var_dump($webhookUrl);
         $this->client->request('POST', $webhookUrl, [
             'json' => ['text' => $text],  
         ]);
@@ -122,14 +127,14 @@ class WebScraperToSlack
     public function getLastHourItems($items)
     {
         $tz = new DateTimeZone("UTC");
-        $lastHour = (new \DateTime('now', $tz))->sub(new \DateInterval('PT1H'));
+        $lastHour = (new DateTime('now', $tz))->sub(new DateInterval('PT1H'));
 
 
-        $m = array_map(static function (Message $msg) use ($lastHour) {
-            return sprintf('%s | %s | %d', $msg->timestamp->format('d/m/y H:i'), $lastHour->format('d/m/y H:i'), $msg->timestamp >= $lastHour);
-        }, $items);
-        
-        $this->postToSlack('_DEBUG:_ ' . var_export($m, true));
+//        $m = array_map(static function (Message $msg) use ($lastHour) {
+//            return sprintf('%s | %s | %d', $msg->timestamp->format('d/m/y H:i'), $lastHour->format('d/m/y H:i'), $msg->timestamp >= $lastHour);
+//        }, $items);
+//        
+//        $this->postToSlack('_DEBUG:_ ' . var_export($m, true));
 
         return array_filter($items, static function (Message $msg) use ($lastHour) {
             return $msg->timestamp >= $lastHour;
