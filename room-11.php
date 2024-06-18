@@ -25,6 +25,7 @@ class Message implements JsonSerializable
     {
         $content = preg_replace('#<br\s*/?>#i', "\n", $content);
         $content = html_entity_decode($content);
+        $content = preg_replace('/<code>(.*)<\/code>/U', "`$1`", $content);
         $content = trim($content);
 
         $tz = new DateTimeZone("UTC");
