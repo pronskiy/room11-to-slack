@@ -29,7 +29,7 @@ class Message implements JsonSerializable
         $content = trim($content);
 
         $tz = new DateTimeZone("UTC");
-        $this->timestamp = DateTimeImmutable::createFromFormat('g:i A', $timestamp, $tz);
+        $this->timestamp = DateTimeImmutable::createFromFormat('H:i', $timestamp, $tz);
         
         $this->content = $content;
     }
